@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 namespace Tarefas.Middleware
 {
     public class ExceptionMiddleware
@@ -29,12 +30,16 @@ namespace Tarefas.Middleware
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-            return context.Response.WriteAsync(new
+            var response = new
             {
                 StatusCode = context.Response.StatusCode,
                 Message = "An unexpected error occurred. Please try again later.",
                 Detailed = ex.Message
-            }.ToString());
+            }.ToString();
+
+            var json = JsonSerializer.Serialize(response);
+
+            return context.Response.WriteAsync(json);
         }
 
     }

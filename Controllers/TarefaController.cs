@@ -13,11 +13,13 @@ namespace TodoApi.Controllers
   [Route("[controller]")]
   public class TarefaController : ControllerBase
   {
+    private readonly ILogger<TarefaController> _logger;
     private readonly OrganizadorContext _context;
 
-    public TarefaController(OrganizadorContext context)
+    public TarefaController(OrganizadorContext context, ILogger<TarefaController> logger)
     {
       _context = context;
+      _logger = logger;
     }
 
     [HttpGet("{id}")]
@@ -42,8 +44,8 @@ namespace TodoApi.Controllers
       return Ok(tarefas);
     }
 
-    [HttpPost("ObterPorTitulo")]
-    public async Task<IActionResult> ObterPorTitulo([FromBody] string titulo)
+    [HttpGet("ObterPorTitulo/{titulo}")]
+    public async Task<IActionResult> ObterPorTitulo(string titulo)
     {
       // Validação do título
       if (string.IsNullOrEmpty(titulo?.Trim()))
@@ -57,8 +59,8 @@ namespace TodoApi.Controllers
       return Ok(tarefas);
     }
 
-    [HttpGet("ObterPorData")]
-    public async Task<IActionResult> ObterPorData([FromBody] DateTime data)
+    [HttpGet("ObterPorData/{data}")]
+    public async Task<IActionResult> ObterPorData(DateTime data)
     {
       // Validação da data
       if (data == DateTime.MinValue)
@@ -76,8 +78,8 @@ namespace TodoApi.Controllers
       return Ok(tarefa);
     }
 
-    [HttpGet("ObterPorStatus")]
-    public async Task<IActionResult> ObterPorStatus([FromBody] EnumStatusTarefa status)
+    [HttpGet("ObterPorStatus/{status}")]
+    public async Task<IActionResult> ObterPorStatus(EnumStatusTarefa status)
     {
       // Verificação de validade do status
       if (!Enum.IsDefined(typeof(EnumStatusTarefa), status))
@@ -98,29 +100,49 @@ namespace TodoApi.Controllers
     [HttpPost]
     public async Task<IActionResult> Criar([FromBody] Tarefa tarefa)
     {
-      // Validação de Data
-      if (tarefa.Data == DateTime.MinValue)
-        return BadRequest(new { Erro = "A data da tarefa não pode ser vazia" });
+      try
+      {
+        // Validação de Data
+        if (tarefa.Data == DateTime.MinValue)
+          return BadRequest(new { Erro = "A data da tarefa não pode ser vazia" });
+        bool data = tarefa.Data.ToString() == "";
 
-      if (tarefa.Data < DateTime.Now)
-        return BadRequest(new { Erro = "A data da tarefa não pode ser menor que a data atual" });
+        if (tarefa.Data == null || tarefa.Data == default || data)
+          return BadRequest(new { Erro = "A data da tarefa não pode ser vazia" });
 
-      // Validação de Título
-      if (string.IsNullOrEmpty(tarefa.Titulo?.Trim()))
-        return BadRequest(new { Erro = "O título da tarefa não pode ser vazio" });
+        if (tarefa.Data < DateTime.Now)
+          return BadRequest(new { Erro = "A data da tarefa não pode ser menor que a data atual" });
 
-      // Validação de Descrição
-      if (string.IsNullOrEmpty(tarefa.Descricao?.Trim()))
-        return BadRequest(new { Erro = "A descrição da tarefa não pode ser vazia" });
+        // Validação de Título
+        if (string.IsNullOrEmpty(tarefa.Titulo?.Trim()))
+          return BadRequest(new { Erro = "O título da tarefa não pode ser vazio" });
 
-      // Validação de Status
-      if (!Enum.IsDefined(typeof(EnumStatusTarefa), tarefa.Status))
-        return BadRequest(new { Erro = "O status da tarefa é inválido" });
+        // Validação de Descrição
+        if (string.IsNullOrEmpty(tarefa.Descricao?.Trim()))
+          return BadRequest(new { Erro = "A descrição da tarefa não pode ser vazia" });
 
-      // Adicionar a tarefa recebida no EF e salvar as mudanças
-      _context.Tarefas.Add(tarefa);
-      await _context.SaveChangesAsync();
-      return CreatedAtAction(nameof(ObterPorId), new { id = tarefa.Id }, tarefa);
+        // Validação de Status
+        if (!Enum.IsDefined(typeof(EnumStatusTarefa), tarefa.Status))
+          return BadRequest(new { Erro = "O status da tarefa é inválido" });
+
+        // Adicionar a tarefa recebida no EF e salvar as mudanças
+        _context.Tarefas.Add(tarefa);
+        await _context.SaveChangesAsync();
+        return CreatedAtAction(nameof(ObterPorId), new { id = tarefa.Id }, tarefa);
+      }
+      catch (DbUpdateException ex)
+      {
+        // Captura exceções de atualização de banco de dados
+        _logger.LogError(ex, "An error occurred while updating the database.");
+        return StatusCode(StatusCodes.Status500InternalServerError, new { Erro = "An error occurred while updating the database. Please try again later." });
+      }
+      catch (Exception ex)
+      {
+        // Captura outras exceções inesperadas
+        _logger.LogError(ex, "An unexpected error occurred while creating the task.");
+        return StatusCode(StatusCodes.Status500InternalServerError, new { Erro = "An unexpected error occurred. Please try again later." });
+      }
+
     }
 
     [HttpPut("{id}")]
@@ -137,32 +159,45 @@ namespace TodoApi.Controllers
       if (tarefaBanco == null)
         return NotFound(new { Erro = "Tarefa não encontrada" });
 
-      // Validação de Data
-      if (tarefa.Data == DateTime.MinValue)
-        return BadRequest(new { Erro = "A data da tarefa não pode ser vazia" });
+      try
+      {
+        // Validação de Data
+        if (tarefa.Data == DateTime.MinValue)
+          return BadRequest(new { Erro = "A data da tarefa não pode ser vazia" });
 
-      if (tarefa.Data < DateTime.Now)
-        return BadRequest(new { Erro = "A data da tarefa não pode ser menor que a data atual" });
+        if (tarefa.Data < DateTime.Now)
+          return BadRequest(new { Erro = "A data da tarefa não pode ser menor que a data atual" });
 
-      // Validação de Título
-      if (string.IsNullOrEmpty(tarefa.Titulo?.Trim()))
-        return BadRequest(new { Erro = "O título da tarefa não pode ser vazio" });
+        // Validação de Título
+        if (string.IsNullOrEmpty(tarefa.Titulo?.Trim()))
+          return BadRequest(new { Erro = "O título da tarefa não pode ser vazio" });
 
-      // Validação de Descrição
-      if (string.IsNullOrEmpty(tarefa.Descricao?.Trim()))
-        return BadRequest(new { Erro = "A descrição da tarefa não pode ser vazia" });
+        // Validação de Descrição
+        if (string.IsNullOrEmpty(tarefa.Descricao?.Trim()))
+          return BadRequest(new { Erro = "A descrição da tarefa não pode ser vazia" });
 
-      // Atualizar os campos da tarefa
-      tarefaBanco.Titulo = tarefa.Titulo;
-      tarefaBanco.Descricao = tarefa.Descricao;
-      tarefaBanco.Data = tarefa.Data;
-      tarefaBanco.Status = tarefa.Status;
+        // Atualizar os campos da tarefa
+        tarefaBanco.Titulo = tarefa.Titulo;
+        tarefaBanco.Descricao = tarefa.Descricao;
+        tarefaBanco.Data = tarefa.Data;
+        tarefaBanco.Status = tarefa.Status;
 
-      // Marcar a tarefa como modificada e salvar as mudanças
-      _context.Entry(tarefaBanco).State = EntityState.Modified;
-      await _context.SaveChangesAsync();
+        // Marcar a tarefa como modificada e salvar as mudanças
+        _context.Entry(tarefaBanco).State = EntityState.Modified;
+        await _context.SaveChangesAsync();
 
-      return NoContent();
+        return NoContent();
+      }
+      catch (DbUpdateException ex)
+      {
+        _logger.LogError(ex, "An error occurred while updating the database.");
+        return StatusCode(StatusCodes.Status500InternalServerError, new { Erro = "An error occurred while updating the database. Please try again later." });
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError(ex, "An unexpected error occurred while updating the task.");
+        return StatusCode(StatusCodes.Status500InternalServerError, new { Erro = "An unexpected error occurred. Please try again later." });
+      }
     }
 
     [HttpDelete("{id}")]
@@ -170,16 +205,28 @@ namespace TodoApi.Controllers
     {
       // Buscar a tarefa pelo Id no banco
       var tarefaBanco = await _context.Tarefas.FindAsync(id);
+      try
+      {
+        // Verificação se a tarefa existe no banco
+        if (tarefaBanco == null)
+          return NotFound(new { Erro = "Tarefa não encontrada" });
 
-      // Verificação se a tarefa existe no banco
-      if (tarefaBanco == null)
-        return NotFound(new { Erro = "Tarefa não encontrada" });
+        // Remover a tarefa do banco e salvar as mudanças
+        _context.Tarefas.Remove(tarefaBanco);
+        await _context.SaveChangesAsync();
 
-      // Remover a tarefa do banco e salvar as mudanças
-      _context.Tarefas.Remove(tarefaBanco);
-      await _context.SaveChangesAsync();
-
-      return NoContent();
+        return NoContent();
+      }
+      catch (DbUpdateException ex)
+      {
+        _logger.LogError(ex, "An error occurred while deleting the task.");
+        return StatusCode(StatusCodes.Status500InternalServerError, new { Erro = "An error occurred while deleting the task. Please try again later." });
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError(ex, "An unexpected error occurred while deleting the task.");
+        return StatusCode(StatusCodes.Status500InternalServerError, new { Erro = "An unexpected error occurred. Please try again later." });
+      }
     }
   }
 }
