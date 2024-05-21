@@ -4,7 +4,7 @@ Esta é uma aplicação ASP.NET Core Web API para gerenciar tarefas. A aplicaç�
 
 ## Requisitos
 
-- [.NET 6 SDK](https://dotnet.microsoft.com/download/dotnet/6.0)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/6.0)
 - [SQLite](https://www.sqlite.org/download.html)
 
 ## Configuração do Ambiente
